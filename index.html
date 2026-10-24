@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HIDE OR RUN: 3D HORROR EXPERIENCE</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;600;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+        }
+
+        .font-creepster { font-family: 'Creepster', cursive; }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+
+        /* Horror Custom Glow & Styling */
+        .glow-red {
+            box-shadow: 0 0 25px rgba(225, 29, 72, 0.6), inset 0 0 15px rgba(225, 29, 72, 0.3);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.5), inset 0 0 10px rgba(6, 182, 212, 0.2);
+        }
+        .glow-gold {
+            box-shadow: 0 0 25px rgba(234, 179, 8, 0.6);
+        }
+
+        .blood-scanlines {
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(225, 29, 72, 0.08) 50%, rgba(225, 29, 72, 0.08));
+            background-size: 100% 4px;
+        }
+
+        /* Card States & Transitions */
+        .picture-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .picture-card:hover {
+            transform: translateY(-4px) scale(1.02);
+        }
+        .picture-card.active-tab-card {
+            border-color: #f43f5e;
+            box-shadow: 0 0 25px rgba(244, 63, 94, 0.5);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #e11d48; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #f43f5e; }
+
+        /* Animation Keyframes */
+        @keyframes pulseAlert {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.03); }
+        }
+        .pulse-alert { animation: pulseAlert 1s infinite ease-in-out; }
+
+        @keyframes flickerLight {
+            0%, 100% { opacity: 1; }
+            41% { opacity: 0.8; }
+            42% { opacity: 0.2; }
+            43% { opacity: 0.9; }
+            45% { opacity: 0.3; }
+            46% { opacity: 1; }
+        }
+        .flicker-effect { animation: flickerLight 4s infinite; }
+
+        /* Touch Control Buttons */
+        .touch-btn {
+            background: rgba(15, 23, 42, 0.75);
+            border: 2px solid rgba(225, 29, 72, 0.5);
+            backdrop-filter: blur(8px);
+            touch-action: manipulation;
+        }
+        .touch-btn:active {
+            background: rgba(225, 29, 72, 0.7);
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen relative">
+
+    <!-- 3D GRAPHICS CANVAS -->
+    <canvas id="viewport" class="absolute inset-0 w-full h-full block z-0"></canvas>
+
+    <!-- SCANLINE OVERLAY -->
+    <div class="absolute inset-0 blood-scanlines pointer-events-none z-10"></div>
+
+    <!-- MAIN MENU OVERLAY -->
+    <div id="main-menu" class="absolute inset-0 z-50 flex flex-col justify-between p-4 sm:p-6 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+        
+        <!-- Header Bar -->
+        <div class="flex justify-between items-center z-10 max-w-7xl mx-auto w-full border-b border-slate-800/80 pb-4">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-skull-crossbones text-red-600 text-3xl sm:text-5xl animate-pulse"></i>
+                <div>
+                    <h1 class="text-3xl sm:text-5xl font-black font-creepster tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-red-600 via-rose-500 to-amber-500">
+                        HIDE OR RUN
+                    </h1>
+                    <p class="text-[10px] sm:text-xs font-orbitron text-slate-400 tracking-widest">3D SURVIVAL HORROR REALM</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="bg-slate-900/90 border border-amber-500/40 px-3 py-1.5 rounded-full flex items-center gap-2">
+                    <i class="fa-solid fa-ankh text-amber-400 text-sm"></i>
+                    <span id="souls-display" class="font-bold text-xs text-amber-300">REVIVE SOULS: 3</span>
+                </div>
+                <button onclick="toggleAudio()" id="audio-toggle-btn" class="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-bold text-slate-300 hover:border-red-500 transition">
+                    <i class="fa-solid fa-volume-high text-emerald-400" id="audio-icon"></i> <span id="audio-text">SOUND: ON</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Center Menu Tabs & Dynamic Picture Gallery -->
+        <div class="my-4 max-w-7xl mx-auto w-full z-10 flex flex-col flex-1">
+            
+            <!-- Tab Selection Buttons -->
+            <div class="flex justify-center sm:justify-start gap-2 sm:gap-4 mb-4 border-b border-slate-800 pb-3">
+                <button onclick="switchTab('levels')" id="tab-btn-levels" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-black font-orbitron bg-red-600 text-white shadow-lg shadow-red-900/40 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-map-location-dot"></i> 10 REALMS
+                </button>
+                <button onclick="switchTab('weapons')" id="tab-btn-weapons" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-black font-orbitron bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-crosshairs text-cyan-400"></i> ARMORY & BANISHERS
+                </button>
+                <button onclick="switchTab('ghosts')" id="tab-btn-ghosts" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-black font-orbitron bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-book-skull text-purple-400"></i> GHOST ENCYCLOPEDIA
+                </button>
+            </div>
+
+            <!-- TAB 1: PICTURE-CARD LEVEL SELECTION -->
+            <div id="tab-content-levels" class="tab-content block flex-1">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 max-h-[50vh] sm:max-h-[55vh] overflow-y-auto p-1 pr-2">
+                    <!-- Dynamic Level Cards populated by JS -->
+                </div>
+            </div>
+
+            <!-- TAB 2: PICTURE-CARD WEAPON ARMORY -->
+            <div id="tab-content-weapons" class="tab-content hidden flex-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] sm:max-h-[55vh] overflow-y-auto p-1 pr-2">
+                    <!-- Dynamic Weapon Cards populated by JS -->
+                </div>
+            </div>
+
+            <!-- TAB 3: GHOST ENCYCLOPEDIA -->
+            <div id="tab-content-ghosts" class="tab-content hidden flex-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] sm:max-h-[55vh] overflow-y-auto p-1 pr-2">
+                    <!-- Dynamic Ghost Cards populated by JS -->
+                </div>
+            </div>
+
+            <!-- Selected Level & Launch Info Panel -->
+            <div class="mt-4 bg-slate-900/90 border border-red-900/60 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 glow-red">
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <div id="selected-level-preview" class="w-16 h-16 rounded-xl bg-red-950 border border-red-600/60 flex items-center justify-center text-3xl text-red-500 shrink-0">
+                        <i class="fa-solid fa-school"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span id="selected-lvl-badge" class="px-2 py-0.5 bg-red-600 text-[10px] font-bold rounded">LEVEL 1</span>
+                            <h3 id="selected-lvl-title" class="text-base sm:text-lg font-extrabold text-white">Haunted High School</h3>
+                        </div>
+                        <p id="selected-lvl-desc" class="text-xs text-slate-400 mt-0.5">Stalker: Evil Nun (Valak) • Collect Doll Head</p>
+                    </div>
+                </div>
+
+                <!-- Difficulty Selector -->
+                <div class="flex items-center gap-2 w-full md:w-auto justify-center">
+                    <button onclick="setDifficulty('EASY')" id="diff-EASY" class="diff-btn px-3 py-2 rounded-xl border border-emerald-600/50 bg-emerald-950/40 text-emerald-400 text-xs font-bold text-center hover:bg-emerald-900/50">
+                        EASY<br><span class="text-[9px] text-slate-400">1.8 u/s</span>
+                    </button>
+                    <button onclick="setDifficulty('HARD')" id="diff-HARD" class="diff-btn px-3 py-2 rounded-xl border border-amber-600/50 bg-amber-950/40 text-amber-400 text-xs font-bold text-center hover:bg-amber-900/50">
+                        HARD<br><span class="text-[9px] text-slate-400">3.6 u/s</span>
+                    </button>
+                    <button onclick="setDifficulty('EXTREME')" id="diff-EXTREME" class="diff-btn px-3 py-2 rounded-xl border border-red-600 bg-red-950/80 text-red-400 text-xs font-bold text-center hover:bg-red-900 ring-2 ring-red-500/50">
+                        EXTREME<br><span class="text-[9px] text-red-300">11.8 u/s (+10)</span>
+                    </button>
+                </div>
+
+                <!-- START BUTTON -->
+                <button onclick="startGame()" class="w-full md:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-red-700 via-rose-600 to-red-800 hover:from-red-600 hover:to-rose-500 font-black font-orbitron text-lg tracking-wider text-white shadow-xl shadow-red-900/60 active:scale-95 transition flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-play"></i> NO MERCY START
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="max-w-7xl mx-auto w-full border-t border-slate-800/80 pt-3 flex justify-between items-center text-[10px] sm:text-xs text-slate-500 z-10">
+            <span>HIDE OR RUN v3.0 • VISUAL REWORK</span>
+            <span>WASD = MOVE | SHIFT = SPRINT | E = INTERACT | F = BANISH WEAPON</span>
+        </div>
+    </div>
+
+    <!-- IN-GAME HUD OVERLAY -->
+    <div id="game-hud" class="hidden absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-4 sm:p-6">
+        
+        <!-- Top HUD Bar -->
+        <div class="flex justify-between items-start gap-2">
+            
+            <!-- Objective Info -->
+            <div class="bg-slate-950/85 backdrop-blur border border-slate-800 p-3 rounded-2xl flex items-center gap-3 shadow-lg">
+                <div class="w-10 h-10 rounded-xl bg-red-950/80 border border-red-600/50 flex items-center justify-center text-red-400 text-xl">
+                    <i id="hud-quest-icon" class="fa-solid fa-puzzle-piece"></i>
+                </div>
+                <div>
+                    <span id="hud-level-name" class="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Level 1: School</span>
+                    <span id="hud-quest-title" class="text-sm font-black text-amber-400">FIND DOLL HEAD</span>
+                </div>
+            </div>
+
+            <!-- Active Ghost Banished Banner -->
+            <div id="banish-banner" class="hidden bg-cyan-950/90 border-2 border-cyan-400 text-cyan-200 px-4 py-2 rounded-2xl backdrop-blur shadow-xl shadow-cyan-500/30 pulse-alert flex items-center gap-3">
+                <i class="fa-solid fa-shield-cat text-cyan-400 text-2xl"></i>
+                <div>
+                    <span class="text-[10px] uppercase font-extrabold text-cyan-300 block">GHOST BANISHED (SAFETY)</span>
+                    <span id="banish-timer-display" class="text-xl font-black font-orbitron text-cyan-100">05:00</span>
+                </div>
+            </div>
+
+            <!-- Proximity Radar & Distance Meter -->
+            <div class="bg-slate-950/85 backdrop-blur border border-red-900/80 p-3 rounded-2xl flex items-center gap-3 shadow-lg">
+                <div class="relative w-11 h-11 bg-slate-900 rounded-full border border-slate-700 flex items-center justify-center overflow-hidden">
+                    <div id="radar-sweep" class="absolute inset-0 bg-red-600/10 rounded-full"></div>
+                    <i id="radar-heart" class="fa-solid fa-heart-pulse text-red-600 text-xl"></i>
+                    <div id="radar-blip" class="hidden absolute w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></div>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold text-slate-400 block uppercase">GHOST PROXIMITY</span>
+                    <span id="hud-proximity-text" class="text-xs font-black text-emerald-400">SAFE AREA (>30 STEPS)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Warning Flash Banner (<30 steps) -->
+        <div id="warning-30-steps" class="hidden self-center bg-red-600/90 text-white font-black font-orbitron px-6 py-2 rounded-full border-2 border-amber-300 shadow-2xl pulse-alert text-xs sm:text-sm tracking-widest uppercase">
+            ⚠️ ENTITY DETECTED WITHIN 30 STEPS!
+        </div>
+
+        <!-- Center Screen Interactive Reticle -->
+        <div class="self-center my-auto flex flex-col items-center">
+            <div class="w-3 h-3 border border-white/70 rounded-full bg-white/30"></div>
+            <div id="interaction-prompt" class="hidden mt-3 px-4 py-1.5 rounded-full bg-amber-500 text-black font-black text-xs border border-amber-200 animate-bounce">
+                PRESS [E] TO COLLECT DOLL PART
+            </div>
+        </div>
+
+        <!-- Bottom Touch & Action Bar -->
+        <div class="flex justify-between items-end pointer-events-auto">
+            
+            <!-- Mobile D-Pad Directional Buttons -->
+            <div class="grid grid-cols-3 gap-1 w-32 h-32 md:hidden">
+                <div></div>
+                <button id="btn-up" class="touch-btn text-white rounded-xl font-bold text-lg">▲</button>
+                <div></div>
+                <button id="btn-left" class="touch-btn text-white rounded-xl font-bold text-lg">◀</button>
+                <button id="btn-down" class="touch-btn text-white rounded-xl font-bold text-lg">▼</button>
+                <button id="btn-right" class="touch-btn text-white rounded-xl font-bold text-lg">▶</button>
+            </div>
+
+            <!-- Weapon & Action Controls -->
+            <div class="flex gap-2 sm:gap-3 ml-auto">
+                <!-- Pause Button -->
+                <button onclick="pauseGame()" class="w-12 h-12 rounded-2xl bg-slate-800/90 border border-slate-600 text-white flex items-center justify-center text-lg active:scale-95 shadow-lg">
+                    <i class="fa-solid fa-pause"></i>
+                </button>
+
+                <!-- Sprint Button -->
+                <button id="btn-sprint" class="w-14 h-14 rounded-2xl bg-amber-900/80 active:bg-amber-600 border border-amber-500 text-amber-200 font-bold flex flex-col items-center justify-center shadow-lg">
+                    <i class="fa-solid fa-person-running text-lg"></i>
+                    <span class="text-[8px] font-orbitron">RUN</span>
+                </button>
+
+                <!-- WEAPON BANISH BUTTON -->
+                <button id="btn-weapon-banish" onclick="useEquippedWeapon()" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-cyan-600 via-blue-600 to-indigo-800 active:scale-95 border-2 border-cyan-300 text-white font-black flex flex-col items-center justify-center shadow-2xl shadow-cyan-500/40 glow-cyan">
+                    <i id="hud-weapon-icon" class="fa-solid fa-cross text-xl"></i>
+                    <span class="text-[9px] font-orbitron tracking-tighter uppercase mt-0.5">BANISH</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JUMPSCARE & GAME OVER MODAL -->
+    <div id="jumpscare-overlay" class="hidden fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center">
+        <div id="jumpscare-skull" class="text-8xl sm:text-9xl text-red-600 animate-ping mb-4">
+            <i class="fa-solid fa-skull"></i>
+        </div>
+        <h1 id="jumpscare-title" class="text-5xl sm:text-7xl font-black text-red-600 font-creepster tracking-widest mb-2">
+            YOU WERE CAUGHT!
+        </h1>
+        <p id="jumpscare-sub" class="text-slate-300 text-sm sm:text-base max-w-md mb-6">
+            The spectral entity dragged you into the shadow abyss.
+        </p>
+
+        <div class="flex flex-col sm:flex-row gap-3">
+            <button onclick="revivePlayerSoul()" id="btn-revive" class="touch-btn px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-xl border border-amber-200 flex items-center justify-center gap-2 glow-gold">
+                <i class="fa-solid fa-ankh"></i> REVIVE MY SOUL (1 SHIELD)
+            </button>
+            <button onclick="restartLevel()" class="touch-btn px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl border border-red-300">
+                TRY AGAIN
+            </button>
+            <button onclick="exitToMenu()" class="touch-btn px-6 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl">
+                MAIN MENU
+            </button>
+        </div>
+    </div>
+
+    <!-- PAUSE MENU -->
+    <div id="modal-pause" class="hidden fixed inset-0 z-40 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-sm w-full text-center shadow-2xl">
+            <h2 class="text-3xl font-black text-red-500 font-creepster mb-4">REALM PAUSED</h2>
+            <div class="flex flex-col gap-3">
+                <button onclick="resumeGame()" class="touch-btn py-3 bg-slate-800 rounded-xl font-bold">RESUME</button>
+                <button onclick="restartLevel()" class="touch-btn py-3 bg-slate-800 rounded-xl font-bold">RESTART REALM</button>
+                <button onclick="exitToMenu()" class="touch-btn py-3 bg-red-950 border border-red-700 text-red-400 rounded-xl font-bold">EXIT TO MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CERTIFICATE OF HORROR MASTER -->
+    <div id="modal-certificate" class="hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-lg flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-gradient-to-b from-slate-900 via-slate-950 to-black border-4 border-amber-500 p-6 sm:p-8 rounded-3xl max-w-2xl w-full text-center shadow-2xl my-auto">
+            <i class="fa-solid fa-trophy text-amber-400 text-6xl mb-2 animate-bounce"></i>
+            <h2 class="text-3xl sm:text-5xl font-black text-amber-400 tracking-wider font-creepster">OFFICIAL HORROR MASTER CERTIFICATE</h2>
+            <p class="text-slate-400 text-xs font-orbitron uppercase tracking-widest my-2">THIS CERTIFIES THAT THE PLAYER HAS SURVIVED ALL 10 REALMS</p>
+            <div class="bg-slate-900/90 border border-amber-500/40 p-4 rounded-2xl my-4 text-left space-y-2 text-xs">
+                <div class="flex justify-between"><span class="text-slate-400">Status:</span> <b class="text-emerald-400">UNTOUCHABLE LEGEND</b></div>
+                <div class="flex justify-between"><span class="text-slate-400">Realms Cleared:</span> <b class="text-amber-400">10 / 10 COMPLETED</b></div>
+                <div class="flex justify-between"><span class="text-slate-400">Cursed Doll:</span> <b class="text-cyan-400">100% FULLY ASSEMBLED</b></div>
+                <div class="flex justify-between"><span class="text-slate-400">Exorcisms Conducted:</span> <b class="text-rose-400">ALL 10 GHOSTS BANISHED</b></div>
+            </div>
+            <div class="flex justify-center gap-3">
+                <button onclick="window.print()" class="touch-btn px-6 py-3 bg-amber-500 text-black font-extrabold rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-print"></i> PRINT / SAVE PDF
+                </button>
+                <button onclick="exitToMenu()" class="touch-btn px-6 py-3 bg-slate-800 text-white font-bold rounded-xl">
+                    RETURN TO MENU
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT GAME ENGINE LOGIC -->
+    <script>
+        /* -------------------------------------------------------------------------- */
+        /*  DATA STRUCTURES: LEVELS, WEAPONS, GHOSTS                                 */
+        /* -------------------------------------------------------------------------- */
+        
+        // 10 UNIQUE THEMATIC LEVELS WITH PICTURE ICONS
+        const GAME_LEVELS = [
+            { id: 1, name: 'Haunted High School', ghostName: 'Evil Nun (Valak)', dollPart: 'Doll Head', icon: 'fa-school', envColor: 0x1e293b, fogColor: 0x0f172a },
+            { id: 2, name: 'Cursed Village', ghostName: 'Manjulika', dollPart: 'Doll Torso', icon: 'fa-house-village', envColor: 0x331e0b, fogColor: 0x1f1307 },
+            { id: 3, name: 'Abandoned Water Park', ghostName: 'Bloody Mary', dollPart: 'Left Arm', icon: 'fa-water-ladder', envColor: 0x082f49, fogColor: 0x031926 },
+            { id: 4, name: 'Luxury Car Showroom', ghostName: 'Slender Spirit', dollPart: 'Right Arm', icon: 'fa-car-side', envColor: 0x312e81, fogColor: 0x1e1b4b },
+            { id: 5, name: 'World Cup Stadium', ghostName: 'Annabelle', dollPart: 'Left Leg', icon: 'fa-futbol', envColor: 0x064e3b, fogColor: 0x022c22 },
+            { id: 6, name: '80s Retro House', ghostName: 'Reanimated Corpse', dollPart: 'Right Leg', icon: 'fa-tv', envColor: 0x701a75, fogColor: 0x4a044e },
+            { id: 7, name: 'Amusement Park', ghostName: 'Killer Clown', dollPart: 'Doll Heart', icon: 'fa-ferris-wheel', envColor: 0x7c2d12, fogColor: 0x451a03 },
+            { id: 8, name: 'Dark Cursed Forest', ghostName: 'Wendigo', dollPart: 'Soul Gem', icon: 'fa-tree', envColor: 0x022c22, fogColor: 0x011711 },
+            { id: 9, name: 'Black Magic House', ghostName: 'Voodoo Doctor', dollPart: 'Golden Crown', icon: 'fa-hat-wizard', envColor: 0x4c1d95, fogColor: 0x2e1065 },
+            { id: 10, name: 'Hell Realm', ghostName: 'Lord of Hell', dollPart: 'Pedestal', icon: 'fa-fire-flame-curved', envColor: 0x7f1d1d, fogColor: 0x450a0a }
+        ];
+
+        // 10 EXORCISM BANISHING WEAPONS WITH STATS
+        const GAME_WEAPONS = [
+            { id: 'w1', name: 'Holy Crucifix', levelReq: 1, icon: 'fa-cross', desc: 'Blinds entity with consecrated light.', color: 0x00f0ff },
+            { id: 'w2', name: 'Salt Shotgun', levelReq: 2, icon: 'fa-bolt', desc: 'Fires blessed rock salt pellets.', color: 0xe11d48 },
+            { id: 'w3', name: 'Plasma Blaster', levelReq: 3, icon: 'fa-atom', desc: 'Disrupts ethereal frequency.', color: 0x3b82f6 },
+            { id: 'w4', name: 'Spirit Katana', levelReq: 4, icon: 'fa-khanda', desc: 'Cleaves spectral tether instantly.', color: 0xa855f7 },
+            { id: 'w5', name: 'Trophy Cannon', levelReq: 5, icon: 'fa-trophy', desc: 'Sacred blast of championship gold.', color: 0xeab308 },
+            { id: 'w6', name: 'Retro Laser', levelReq: 6, icon: 'fa-raygun', desc: 'Synthwave light disintegrator.', color: 0xec4899 },
+            { id: 'w7', name: 'Ghost Trap', levelReq: 7, icon: 'fa-box-open', desc: 'Captures spirit in containment cell.', color: 0x22c55e },
+            { id: 'w8', name: 'Silver Crossbow', levelReq: 8, icon: 'fa-bow-arrow', desc: 'Fires silver exorcism bolts.', color: 0xf97316 },
+            { id: 'w9', name: 'Voodoo Wand', levelReq: 9, icon: 'fa-wand-magic-sparkles', desc: 'Overpowers black magic hexes.', color: 0x8b5cf6 },
+            { id: 'w10', name: 'Hellfire Staff', levelReq: 10, icon: 'fa-fire', desc: 'Eradicates underworld demon lords.', color: 0xef4444 }
+        ];
+
+        /* -------------------------------------------------------------------------- */
+        /*  GLOBAL ENGINE STATE                                                      */
+        /* -------------------------------------------------------------------------- */
+        let currentLevelIdx = 0;
+        let unlockedLevels = parseInt(localStorage.getItem('hor_unlocked_lvls')) || 1;
+        let equippedWeaponId = localStorage.getItem('hor_weapon_id') || 'w1';
+        let currentDifficulty = 'EASY'; // EASY (1.8), HARD (3.6), EXTREME (11.8)
+        
+        let reviveSouls = 3;
+        let ghostBanishedTimer = 0;
+        let banishInterval = null;
+        let invincibleShieldTimer = 0;
+
+        let scene, camera, renderer;
+        let playerObj, ghostObj, dollPartObj;
+        let clock = new THREE.Clock();
+        let isGameRunning = false;
+        let isAudioEnabled = true;
+
+        // Input state
+        const keys = { w: false, a: false, s: false, d: false, shift: false, e: false };
+
+        /* -------------------------------------------------------------------------- */
+        /*  MENU & PICTURE-CARD GALLERY SYSTEM                                        */
+        /* -------------------------------------------------------------------------- */
+        
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
+
+            document.querySelectorAll('#tab-btn-levels, #tab-btn-weapons, #tab-btn-ghosts').forEach(btn => {
+                btn.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-black font-orbitron bg-slate-800 text-slate-300 hover:bg-slate-700 transition";
+            });
+            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+            activeBtn.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-black font-orbitron bg-red-600 text-white shadow-lg shadow-red-900/40 transition";
+        }
+
+        // Render Level Picture Cards
+        function renderLevelCards() {
+            const container = document.querySelector('#tab-content-levels > div');
+            container.innerHTML = '';
+
+            GAME_LEVELS.forEach((lvl, idx) => {
+                const isUnlocked = lvl.id <= unlockedLevels;
+                const isSelected = idx === currentLevelIdx;
+
+                const card = document.createElement('div');
+                card.className = `picture-card p-3 rounded-2xl border flex flex-col justify-between cursor-pointer ${
+                    isSelected ? 'active-tab-card bg-slate-900/90' : isUnlocked ? 'bg-slate-900/60 border-slate-700/80' : 'bg-slate-950/40 border-slate-900 opacity-50'
+                }`;
+
+                card.onclick = () => {
+                    if (isUnlocked) {
+                        currentLevelIdx = idx;
+                        renderLevelCards();
+                        updateSelectedLevelPanel();
+                    }
+                };
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-[9px] font-orbitron px-2 py-0.5 rounded-full ${isUnlocked ? 'bg-red-950 text-red-400 border border-red-700' : 'bg-slate-800 text-slate-500'}">
+                            LVL-${lvl.id}
+                        </span>
+                        <i class="fa-solid ${isUnlocked ? 'fa-lock-open text-emerald-400' : 'fa-lock text-slate-600'} text-xs"></i>
+                    </div>
+
+                    <div class="my-2 text-center py-3 bg-slate-950/80 rounded-xl border border-slate-800/80">
+                        <i class="fa-solid ${lvl.icon} text-3xl ${isUnlocked ? 'text-amber-400' : 'text-slate-600'}"></i>
+                    </div>
+
+                    <div>
+                        <h4 class="text-xs font-bold text-white truncate">${lvl.name}</h4>
+                        <p class="text-[10px] text-red-400 truncate mt-0.5">${lvl.ghostName}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Render Weapon Picture Cards
+        function renderWeaponCards() {
+            const container = document.querySelector('#tab-content-weapons > div');
+            container.innerHTML = '';
+
+            GAME_WEAPONS.forEach(w => {
+                const isUnlocked = unlockedLevels >= w.levelReq;
+                const isEquipped = equippedWeaponId === w.id;
+
+                const card = document.createElement('div');
+                card.className = `picture-card p-4 rounded-2xl border flex flex-col justify-between ${
+                    isEquipped ? 'border-cyan-400 bg-cyan-950/30 glow-cyan' : isUnlocked ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-950/40 border-slate-900 opacity-50'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-2xl ${isUnlocked ? 'text-cyan-400' : 'text-slate-600'}">
+                            <i class="fa-solid ${w.icon}"></i>
+                        </div>
+                        ${isEquipped ? '<span class="text-[9px] font-black bg-cyan-500 text-black px-2 py-1 rounded-full">EQUIPPED</span>' :
+                          isUnlocked ? `<button onclick="equipWeapon('${w.id}')" class="text-xs bg-slate-800 hover:bg-cyan-600 text-white px-3 py-1 rounded-lg transition">EQUIP</button>` :
+                          `<span class="text-[10px] text-slate-500"><i class="fa-solid fa-lock"></i> LVL ${w.levelReq}</span>`}
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">${w.name}</h4>
+                        <p class="text-xs text-slate-400 mt-1">${w.desc}</p>
+                        <div class="mt-2 text-[10px] text-cyan-300 font-orbitron">EFFECT: BANISH GHOST FOR 5 MIN</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Render Ghost Encyclopedia Cards
+        function renderGhostCards() {
+            const container = document.querySelector('#tab-content-ghosts > div');
+            container.innerHTML = '';
+
+            GAME_LEVELS.forEach(lvl => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center gap-4";
+                card.innerHTML = `
+                    <div class="w-12 h-12 rounded-xl bg-red-950 border border-red-600/60 flex items-center justify-center text-red-500 text-2xl shrink-0">
+                        <i class="fa-solid fa-ghost"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-red-400">${lvl.ghostName}</h4>
+                        <p class="text-xs text-slate-400">Realm ${lvl.id}: ${lvl.name}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function equipWeapon(id) {
+            equippedWeaponId = id;
+            localStorage.setItem('hor_weapon_id', id);
+            renderWeaponCards();
+            updateHUDWeaponIcon();
+        }
+
+        function updateSelectedLevelPanel() {
+            const lvl = GAME_LEVELS[currentLevelIdx];
+            document.getElementById('selected-lvl-badge').innerText = `LEVEL ${lvl.id}`;
+            document.getElementById('selected-lvl-title').innerText = lvl.name;
+            document.getElementById('selected-lvl-desc').innerText = `Stalker: ${lvl.ghostName} • Search for ${lvl.dollPart}`;
+            document.getElementById('selected-level-preview').innerHTML = `<i class="fa-solid ${lvl.icon}"></i>`;
+        }
+
+        function setDifficulty(diff) {
+            currentDifficulty = diff;
+            document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-red-500/50'));
+            document.getElementById(`diff-${diff}`).classList.add('ring-2', 'ring-red-500/50');
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /*  THREE.JS 3D PROCEDURAL REALMS & GHOST GRAPHICS                            */
+        /* -------------------------------------------------------------------------- */
+        function initThreeEngine() {
+            const canvas = document.getElementById('viewport');
+            const currentLvl = GAME_LEVELS[currentLevelIdx];
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(currentLvl.envColor);
+            scene.fog = new THREE.FogExp2(currentLvl.fogColor, 0.012);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Player Pivot
+            playerObj = new THREE.Group();
+            playerObj.position.set(0, 1.6, 0);
+            scene.add(playerObj);
+            playerObj.add(camera);
+
+            // Lighting (High visibility)
+            const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambient);
+
+            const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+            sun.position.set(20, 50, 20);
+            scene.add(sun);
+
+            // Build Environment & Ghost Models
+            build3DEnvironment(currentLvl.id);
+            ghostObj = create3DGhostMesh();
+            ghostObj.position.set(30, 0, -30);
+            scene.add(ghostObj);
+
+            // Build Collectible Doll Part
+            dollPartObj = create3DDollPartMesh();
+            dollPartObj.position.set(-20, 1, -20);
+            scene.add(dollPartObj);
+
+            window.addEventListener('resize', onResize);
+        }
+
+        function build3DEnvironment(levelId) {
+            // Floor
+            const floorGeo = new THREE.PlaneGeometry(140, 140);
+            const floorMat = new THREE.MeshStandardMaterial({ color: GAME_LEVELS[currentLevelIdx].envColor, roughness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            // Boundary Walls
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x111827 });
+            const addWall = (w, h, d, x, y, z) => {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+                mesh.position.set(x, y, z);
+                scene.add(mesh);
+            };
+            addWall(140, 10, 2, 0, 5, -70);
+            addWall(140, 10, 2, 0, 5, 70);
+            addWall(2, 10, 140, -70, 5, 0);
+            addWall(2, 10, 140, 70, 5, 0);
+
+            // Props depending on Level Theme
+            const propMat = new THREE.MeshStandardMaterial({ color: 0x374151 });
+            for (let i = 0; i < 20; i++) {
+                const px = Math.sin(i * 1.8) * 45;
+                const pz = Math.cos(i * 1.8) * 45;
+
+                if (levelId === 5) { // Stadium Statues (Messi, Ronaldo, Yamal)
+                    const statue = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1, 4), new THREE.MeshStandardMaterial({ color: 0xf59e0b }));
+                    statue.position.set(px, 2, pz);
+                    scene.add(statue);
+                } else if (levelId === 4) { // Car Showroom
+                    const car = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0xe11d48 }));
+                    car.position.set(px, 0.75, pz);
+                    scene.add(car);
+                } else { // Generic Architectural Columns
+                    const col = new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), propMat);
+                    col.position.set(px, 4, pz);
+                    scene.add(col);
+                }
+            }
+        }
+
+        function create3DGhostMesh() {
+            const group = new THREE.Group();
+            
+            // Ghost Torso
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.3 });
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 3.2, 12), bodyMat);
+            torso.position.y = 2.2;
+            group.add(torso);
+
+            // Head
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshStandardMaterial({ color: 0xf3f4f6 }));
+            head.position.y = 4.2;
+            group.add(head);
+
+            // Flickering Red Eyes
+            const eyeGeo = new THREE.SphereGeometry(0.1, 8, 8);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            
+            const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+            eyeL.position.set(-0.2, 4.3, 0.5);
+            group.add(eyeL);
+
+            const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+            eyeR.position.set(0.2, 4.3, 0.5);
+            group.add(eyeR);
+
+            return group;
+        }
+
+        function create3DDollPartMesh() {
+            const group = new THREE.Group();
+            const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.7), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.5 }));
+            mesh.position.y = 0.7;
+            group.add(mesh);
+
+            const light = new THREE.PointLight(0xf59e0b, 2, 10);
+            light.position.y = 1.2;
+            group.add(light);
+
+            return group;
+        }
+
+        function onResize() {
+            if (!camera || !renderer) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /*  GAME LOOP & MOVEMENT LOGIC                                               */
+        /* -------------------------------------------------------------------------- */
+        function animate() {
+            if (!isGameRunning) return;
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+
+            // Player Movement
+            let moveX = 0, moveZ = 0;
+            if (keys.w) moveZ -= 1;
+            if (keys.s) moveZ += 1;
+            if (keys.a) moveX -= 1;
+            if (keys.d) moveX += 1;
+
+            let speed = keys.shift ? 12 : 7;
+            if (moveX !== 0 || moveZ !== 0) {
+                const angle = Math.atan2(moveX, moveZ);
+                playerObj.position.x += Math.sin(angle) * speed * delta;
+                playerObj.position.z += Math.cos(angle) * speed * delta;
+
+                playerObj.position.x = Math.max(-65, Math.min(65, playerObj.position.x));
+                playerObj.position.z = Math.max(-65, Math.min(65, playerObj.position.z));
+            }
+
+            // Ghost AI Movement
+            if (ghostObj && ghostBanishedTimer <= 0) {
+                ghostObj.lookAt(playerObj.position.x, ghostObj.position.y, playerObj.position.z);
+                const dir = new THREE.Vector3().subVectors(playerObj.position, ghostObj.position).normalize();
+
+                let baseSpeed = currentDifficulty === 'EASY' ? 1.8 : (currentDifficulty === 'HARD' ? 3.6 : 11.8);
+                let actualGhostSpeed = baseSpeed + (currentLevelIdx * 0.3);
+
+                ghostObj.position.add(dir.multiplyScalar(actualGhostSpeed * delta));
+
+                // Distance Check
+                const dist = playerObj.position.distanceTo(ghostObj.position);
+                updateRadarSystem(dist);
+
+                // Death Trigger
+                if (dist < 2.3 && invincibleShieldTimer <= 0) {
+                    triggerJumpscare();
+                }
+            }
+
+            // Timers
+            if (invincibleShieldTimer > 0) invincibleShieldTimer -= delta;
+
+            // Collectible Check
+            if (dollPartObj) {
+                dollPartObj.rotation.y += delta * 2;
+                const distDoll = playerObj.position.distanceTo(dollPartObj.position);
+                const prompt = document.getElementById('interaction-prompt');
+
+                if (distDoll < 3.5) {
+                    prompt.classList.remove('hidden');
+                    if (keys.e) collectDollPart();
+                } else {
+                    prompt.classList.add('hidden');
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /*  WEAPON BANISHMENT & RADAR MECHANICS                                       */
+        /* -------------------------------------------------------------------------- */
+        function useEquippedWeapon() {
+            if (ghostBanishedTimer > 0) return;
+
+            ghostBanishedTimer = 300; // 5 MINUTES (300 SECONDS)
+            if (ghostObj) ghostObj.visible = false;
+
+            document.getElementById('banish-banner').classList.remove('hidden');
+
+            if (banishInterval) clearInterval(banishInterval);
+            banishInterval = setInterval(() => {
+                ghostBanishedTimer--;
+                const mins = Math.floor(ghostBanishedTimer / 60);
+                const secs = ghostBanishedTimer % 60;
+                document.getElementById('banish-timer-display').innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+                if (ghostBanishedTimer <= 0) {
+                    clearInterval(banishInterval);
+                    document.getElementById('banish-banner').classList.add('hidden');
+                    if (ghostObj) ghostObj.visible = true;
+                }
+            }, 1000);
+        }
+
+        function updateRadarSystem(dist) {
+            const proximityText = document.getElementById('hud-proximity-text');
+            const warningBanner = document.getElementById('warning-30-steps');
+            const blip = document.getElementById('radar-blip');
+
+            if (dist <= 30) {
+                blip.classList.remove('hidden');
+                warningBanner.classList.remove('hidden');
+                proximityText.innerText = `DANGER (${Math.round(dist)} STEPS)`;
+                proximityText.className = "text-xs font-black text-red-500 animate-pulse";
+            } else {
+                blip.classList.add('hidden');
+                warningBanner.classList.add('hidden');
+                proximityText.innerText = "SAFE AREA (>30 STEPS)";
+                proximityText.className = "text-xs font-black text-emerald-400";
+            }
+        }
+
+        function updateHUDWeaponIcon() {
+            const weapon = GAME_WEAPONS.find(w => w.id === equippedWeaponId) || GAME_WEAPONS[0];
+            document.getElementById('hud-weapon-icon').className = `fa-solid ${weapon.icon} text-xl`;
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /*  LEVEL COMPLETION & REVIVAL SYSTEM                                         */
+        /* -------------------------------------------------------------------------- */
+        function collectDollPart() {
+            if (currentLevelIdx + 1 < GAME_LEVELS.length) {
+                if (currentLevelIdx + 2 > unlockedLevels) {
+                    unlockedLevels = currentLevelIdx + 2;
+                    localStorage.setItem('hor_unlocked_lvls', unlockedLevels);
+                }
+                currentLevelIdx++;
+                renderLevelCards();
+                renderWeaponCards();
+                startGame();
+            } else {
+                // Completed Level 10 - Show Certificate
+                isGameRunning = false;
+                document.getElementById('game-hud').classList.add('hidden');
+                document.getElementById('modal-certificate').classList.remove('hidden');
+            }
+        }
+
+        function triggerJumpscare() {
+            isGameRunning = false;
+            document.getElementById('jumpscare-overlay').classList.remove('hidden');
+            document.getElementById('btn-revive').style.display = reviveSouls > 0 ? 'flex' : 'none';
+        }
+
+        function revivePlayerSoul() {
+            if (reviveSouls > 0) {
+                reviveSouls--;
+                document.getElementById('souls-display').innerText = `REVIVE SOULS: ${reviveSouls}`;
+                document.getElementById('jumpscare-overlay').classList.add('hidden');
+
+                // Reposition player & grant 5s immunity shield
+                playerObj.position.set(0, 1.6, 0);
+                invincibleShieldTimer = 5.0;
+
+                isGameRunning = true;
+                clock.start();
+                animate();
+            }
+        }
+
+        function startGame() {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('jumpscare-overlay').classList.add('hidden');
+            document.getElementById('game-hud').classList.remove('hidden');
+
+            const lvl = GAME_LEVELS[currentLevelIdx];
+            document.getElementById('hud-level-name').innerText = `Level ${lvl.id}: ${lvl.name}`;
+            document.getElementById('hud-quest-title').innerText = `FIND ${lvl.dollPart.toUpperCase()}`;
+
+            updateHUDWeaponIcon();
+            initThreeEngine();
+
+            isGameRunning = true;
+            clock.start();
+            animate();
+        }
+
+        function restartLevel() {
+            document.getElementById('modal-pause').classList.add('hidden');
+            startGame();
+        }
+
+        function pauseGame() {
+            isGameRunning = false;
+            document.getElementById('modal-pause').classList.remove('hidden');
+        }
+
+        function resumeGame() {
+            document.getElementById('modal-pause').classList.add('hidden');
+            isGameRunning = true;
+            clock.start();
+            animate();
+        }
+
+        function exitToMenu() {
+            isGameRunning = false;
+            document.getElementById('game-hud').classList.add('hidden');
+            document.getElementById('modal-pause').classList.add('hidden');
+            document.getElementById('jumpscare-overlay').classList.add('hidden');
+            document.getElementById('modal-certificate').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+        }
+
+        function toggleAudio() {
+            isAudioEnabled = !isAudioEnabled;
+            document.getElementById('audio-icon').className = isAudioEnabled ? "fa-solid fa-volume-high text-emerald-400" : "fa-solid fa-volume-xmark text-red-500";
+            document.getElementById('audio-text').innerText = isAudioEnabled ? "SOUND: ON" : "SOUND: OFF";
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /*  INPUT EVENT LISTENERS                                                     */
+        /* -------------------------------------------------------------------------- */
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'w' || k === 'arrowup') keys.w = true;
+            if (k === 's' || k === 'arrowdown') keys.s = true;
+            if (k === 'a' || k === 'arrowleft') keys.a = true;
+            if (k === 'd' || k === 'arrowright') keys.d = true;
+            if (e.shiftKey) keys.shift = true;
+            if (k === 'e') keys.e = true;
+            if (k === 'f') useEquippedWeapon();
+            if (k === 'escape') pauseGame();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'w' || k === 'arrowup') keys.w = false;
+            if (k === 's' || k === 'arrowdown') keys.s = false;
+            if (k === 'a' || k === 'arrowleft') keys.a = false;
+            if (k === 'd' || k === 'arrowright') keys.d = false;
+            if (!e.shiftKey) keys.shift = false;
+            if (k === 'e') keys.e = false;
+        });
+
+        // Touch Control Listeners
+        const setupBtn = (id, keyName) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+        };
+
+        setupBtn('btn-up', 'w');
+        setupBtn('btn-down', 's');
+        setupBtn('btn-left', 'a');
+        setupBtn('btn-right', 'd');
+        setupBtn('btn-sprint', 'shift');
+
+        // Initial Menu Render
+        window.addEventListener('DOMContentLoaded', () => {
+            renderLevelCards();
+            renderWeaponCards();
+            renderGhostCards();
+            updateSelectedLevelPanel();
+        });
+    </script>
+</body>
+</html>
